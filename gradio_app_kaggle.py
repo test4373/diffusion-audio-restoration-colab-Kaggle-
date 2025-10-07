@@ -442,18 +442,18 @@ with gr.Blocks(title="A2SB Audio Restoration - Kaggle", theme=gr.themes.Soft(), 
             audio_output = gr.Audio(label="Restore Edilmiş Ses", type="filepath")
             info_output = gr.Markdown("Ses dosyası yükleyin ve 'Restore Et' butonuna tıklayın.")
     
-    # Örnekler (Kaggle için)
-    if IN_KAGGLE:
-        gr.Markdown("### 📚 Örnek Kullanım")
-        gr.Examples(
-            examples=[
-                ["bandwidth", 50, True, 2000, 0.3],
-                ["bandwidth", 75, False, 4000, 0.3],
-                ["inpainting", 50, True, 2000, 0.5],
-            ],
-            inputs=[mode, n_steps, cutoff_freq_auto, cutoff_freq_manual, inpaint_length],
-            label="Hızlı Ayarlar"
-        )
+    # Örnekler - Kaggle için devre dışı (JSON schema hatası nedeniyle)
+    # if IN_KAGGLE:
+    #     gr.Markdown("### 📚 Örnek Kullanım")
+    #     gr.Examples(
+    #         examples=[
+    #             ["bandwidth", 50, True, 2000, 0.3],
+    #             ["bandwidth", 75, False, 4000, 0.3],
+    #             ["inpainting", 50, True, 2000, 0.5],
+    #         ],
+    #         inputs=[mode, n_steps, cutoff_freq_auto, cutoff_freq_manual, inpaint_length],
+    #         label="Hızlı Ayarlar"
+    #     )
     
     restore_btn.click(
         fn=restore_audio,
