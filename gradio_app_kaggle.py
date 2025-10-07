@@ -533,6 +533,7 @@ if __name__ == "__main__":
             server_port=args.port,
             debug=True,
             show_error=True,
+            show_api=False,  # API dokümantasyonunu devre dışı bırak (JSON schema hatası önleme)
             server_name="0.0.0.0" if IN_KAGGLE else "127.0.0.1"
         )
     except KeyboardInterrupt:
