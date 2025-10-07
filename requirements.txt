@@ -1,0 +1,35 @@
+# Core Dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Lightning
+lightning>=2.0.0
+pytorch-lightning>=2.0.0
+
+# Audio Processing
+numpy>=1.24.0
+scipy>=1.10.0
+librosa>=0.10.0
+soundfile>=0.12.0
+
+# Deep Learning Utilities
+einops>=0.7.0
+
+# Configuration and CLI
+jsonargparse[signatures]>=4.0.0
+pyyaml>=6.0
+
+# Web Interface
+gradio>=4.0.0
+
+# Utilities
+nest-asyncio>=1.5.0
+tqdm>=4.65.0
+
+# Optional but Recommended
+rotary-embedding-torch>=0.3.0
+ssr-eval>=0.1.0
+
+# Development (Optional)
+matplotlib>=3.7.0
