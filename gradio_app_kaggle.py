@@ -538,7 +538,7 @@ if __name__ == "__main__":
         demo.queue = lambda *args, **kwargs: demo  # Queue'yu bypass et
         
         demo.launch(
-            share=share,
+            share=True,
             server_port=args.port,
             debug=False,  # Debug modunu kapat (API hatalarını gizler)
             show_error=True,
