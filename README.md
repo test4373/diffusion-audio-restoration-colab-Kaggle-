@@ -26,27 +26,12 @@ Restore degraded audio to high-quality 44.1kHz music using NVIDIA's state-of-the
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1m-G7gYXtumpqIVz2O6hCwLhLTWFMM6nw?usp=sharing)
 
+
 1. Click the badge above
 2. Run all cells in order
 3. Use the Gradio interface that appears!
 
-### Option 2: Kaggle (Free GPU Alternative)
-
-[![Open In Kaggle](https://kaggle.com/static/images/open-in-kaggle.svg)](https://kaggle.com/kernels/welcome?src=https://github.com/YOUR_USERNAME/diffusion-audio-restoration/blob/main/A2SB_Complete_Kaggle.ipynb)
-
-1. Click the badge above
-2. Enable GPU in Settings (P100 recommended)
-3. Run all cells in order
-4. Use the Kaggle-optimized Gradio interface!
-
-**Why Kaggle?**
-- ✅ Free GPU access (30 hours/week)
-- ✅ P100 GPU with 16GB VRAM
-- ✅ 30GB RAM, 73GB disk
-- ✅ No subscription required
-- ✅ Kaggle-optimized Gradio interface (`gradio_app_kaggle.py`)
-
-### Option 3: Local Installation
+### Option 2: Local Installation
 
 #### Prerequisites
 - Python 3.10+
