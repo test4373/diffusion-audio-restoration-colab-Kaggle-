@@ -196,10 +196,10 @@ def run_inference_direct(config_files, n_steps, output_path):
         return False, error_msg
 
 def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manual, 
-                  inpaint_length, progress=gr.Progress()):
+                  inpaint_length):
     """Ana ses restorasyon fonksiyonu"""
     try:
-        progress(0, desc="🚀 Başlatılıyor...")
+        print("🚀 Başlatılıyor...")
         
         if audio_file is None:
             return None, "❌ Lütfen bir ses dosyası yükleyin!"
@@ -211,7 +211,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
         output_filename = f"{timestamp}_{mode}_{base_name}.wav"
         output_path = os.path.join(OUTPUT_DIR, output_filename)
         
-        progress(0.1, desc="📊 Ses dosyası analiz ediliyor...")
+        print("📊 Ses dosyası analiz ediliyor...")
         
         # Ses bilgilerini al
         y, sr = librosa.load(audio_file, sr=None)
@@ -230,7 +230,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
         base_config = os.path.join(SCRIPT_DIR, 'configs', 'ensemble_2split_sampling.yaml')
         
         if mode == "bandwidth":
-            progress(0.2, desc="🎯 Bandwidth extension hazırlanıyor...")
+            print("🎯 Bandwidth extension hazırlanıyor...")
             
             # Cutoff frekansını belirle
             if cutoff_freq_auto:
@@ -270,7 +270,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
                 yaml.dump(config, f)
         
         elif mode == "inpainting":
-            progress(0.2, desc="🎨 Audio inpainting hazırlanıyor...")
+            print("🎨 Audio inpainting hazırlanıyor...")
             
             info_text += f"🎯 **Inpainting Length:** {inpaint_length}s\n"
             info_text += f"⚙️ **Sampling Steps:** {n_steps}\n\n"
@@ -298,7 +298,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
             with open(temp_config, 'w') as f:
                 yaml.dump(config, f)
         
-        progress(0.3, desc="🔄 Model çalıştırılıyor... (Bu birkaç dakika sürebilir)")
+        print("🔄 Model çalıştırılıyor... (Bu birkaç dakika sürebilir)")
         
         # Inference çalıştır
         success, error = run_inference_direct([base_config, temp_config], n_steps, output_path)
@@ -310,7 +310,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
         if not success:
             return None, f"## ❌ Hata\n\n```\n{error}\n```"
         
-        progress(0.9, desc="✨ Tamamlanıyor...")
+        print("✨ Tamamlanıyor...")
         
         # Çıktı dosyasını kontrol et
         if os.path.exists(output_path):
@@ -341,7 +341,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
             info_text += f"| Spectral Centroid | {cent_orig:.0f} Hz | {cent_rest:.0f} Hz | {((cent_rest-cent_orig)/cent_orig*100):+.1f}% |\n"
             info_text += f"| Spectral Rolloff | {rolloff_orig:.0f} Hz | {rolloff_rest:.0f} Hz | {((rolloff_rest-rolloff_orig)/rolloff_orig*100):+.1f}% |\n"
             
-            progress(1.0, desc="✅ Tamamlandı!")
+            print("✅ Tamamlandı!")
             return output_path, info_text
         else:
             return None, info_text + "\n---\n\n## ❌ Hata\n\nÇıktı dosyası oluşturulamadı."
