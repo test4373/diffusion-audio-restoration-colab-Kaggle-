@@ -489,6 +489,18 @@ if __name__ == "__main__":
             
             print("🌐 Kaggle ortamı tespit edildi")
             print("📁 Çıktılar: /kaggle/working/gradio_outputs/")
+            
+            # Ngrok token kontrolü
+            ngrok_token = os.environ.get('NGROK_TOKEN', '')
+            if ngrok_token:
+                print("🔑 Ngrok token bulundu, ayarlanıyor...")
+                pyngrok_module.set_auth_token(ngrok_token)
+                print("✅ Ngrok token ayarlandı")
+            else:
+                print("⚠️ Ngrok token bulunamadı")
+                print("💡 Token için: https://dashboard.ngrok.com/get-started/your-authtoken")
+                print("📝 Token'ı notebook'ta NGROK_TOKEN environment variable olarak ayarlayın")
+            
             print("🔗 Ngrok tunnel oluşturuluyor...")
             
             # Ngrok tunnel oluştur
