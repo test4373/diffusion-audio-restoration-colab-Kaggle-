@@ -511,7 +511,7 @@ if __name__ == "__main__":
             print(f"🔗 Public URL: {public_url}")
             print(f"📝 Bu URL'yi tarayıcınızda açın\n")
             
-            share = False  # Ngrok kullanıyoruz, Gradio share'e gerek yok
+            share = True  # Ngrok ile birlikte share=True kullan (Kaggle için gerekli)
         except ImportError:
             print("⚠️ pyngrok yüklü değil, Gradio share kullanılacak")
             print("💡 Ngrok için: pip install pyngrok")
