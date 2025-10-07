@@ -475,7 +475,13 @@ if __name__ == "__main__":
     parser.add_argument('--share', action='store_true', help='Create public URL')
     parser.add_argument('--port', type=int, default=7860, help='Port number')
     parser.add_argument('--ngrok', action='store_true', help='Use ngrok tunnel (Kaggle)')
-    args = parser.parse_args()
+    
+    # Jupyter/Kaggle için argparse hatalarını önle
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        # Jupyter notebook'ta çalışıyorsa default değerleri kullan
+        args = argparse.Namespace(share=False, port=7860, ngrok=False)
     
     print("\n" + "="*60)
     print("🎵 A2SB Audio Restoration")
