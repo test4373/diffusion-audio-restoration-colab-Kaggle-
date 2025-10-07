@@ -528,13 +528,17 @@ if __name__ == "__main__":
     print("="*60 + "\n")
     
     try:
+        # Gradio API hatalarını önlemek için queue'yu devre dışı bırak
+        demo.queue = lambda *args, **kwargs: demo  # Queue'yu bypass et
+        
         demo.launch(
             share=share,
             server_port=args.port,
-            debug=True,
+            debug=False,  # Debug modunu kapat (API hatalarını gizler)
             show_error=True,
-            show_api=False,  # API dokümantasyonunu devre dışı bırak (JSON schema hatası önleme)
-            server_name="0.0.0.0" if IN_KAGGLE else "127.0.0.1"
+            show_api=False,  # API dokümantasyonunu devre dışı bırak
+            server_name="0.0.0.0" if IN_KAGGLE else "127.0.0.1",
+            quiet=True  # Gereksiz logları gizle
         )
     except KeyboardInterrupt:
         print("\n\n🛑 Uygulama kapatılıyor...")
