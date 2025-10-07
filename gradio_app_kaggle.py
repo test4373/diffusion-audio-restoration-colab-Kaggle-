@@ -39,6 +39,47 @@ print(f"🐍 Python Path: {sys.path[:3]}")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ============================================================================
+# GRADIO API PATCH - TypeError: argument of type 'bool' is not iterable FIX
+# ============================================================================
+
+def patch_gradio_client():
+    """
+    Gradio 4.44.0'daki JSON schema hatalarını düzelt.
+    TypeError: argument of type 'bool' is not iterable hatası için patch.
+    """
+    try:
+        import gradio_client.utils as client_utils
+        
+        # Orijinal fonksiyonu sakla
+        original_json_schema_to_python_type = client_utils._json_schema_to_python_type
+        
+        def patched_json_schema_to_python_type(schema, defs=None):
+            """Boolean schema'ları düzelten güvenli wrapper"""
+            try:
+                # Boolean schema kontrolü - bu hatanın ana nedeni
+                if isinstance(schema, bool):
+                    return "Any" if schema else "None"
+                
+                # Orijinal fonksiyonu çağır
+                return original_json_schema_to_python_type(schema, defs)
+            except (TypeError, AttributeError, KeyError) as e:
+                # Hata durumunda güvenli fallback
+                print(f"⚠️ JSON schema hatası düzeltildi: {type(e).__name__}")
+                return "Any"
+        
+        # Patch'i uygula
+        client_utils._json_schema_to_python_type = patched_json_schema_to_python_type
+        print("✅ Gradio client API patch başarıyla uygulandı")
+        return True
+        
+    except Exception as e:
+        print(f"⚠️ Gradio patch uygulanamadı (göz ardı edildi): {e}")
+        return False
+
+# Patch'i hemen uygula
+patch_gradio_client()
+
+# ============================================================================
 # MODÜLLERI İÇE AKTAR
 # ============================================================================
 
@@ -362,12 +403,12 @@ custom_css = """
 }
 """
 
-with gr.Blocks(title="A2SB Audio Restoration - Kaggle", theme=gr.themes.Soft(), css=custom_css) as demo:
+with gr.Blocks(title="A2SB Audio Restoration - Kaggle", theme=gr.themes.Soft(), css=custom_css, analytics_enabled=False) as demo:
     gr.Markdown("""
     # 🎵 A2SB: Audio-to-Audio Schrödinger Bridge
     ### Yüksek Kaliteli Ses Restorasyonu - NVIDIA
     
-    """ + ("🌐 **Kaggle Edition** - Ücretsiz GPU ile ses restorasyonu!" if IN_KAGGLE else "�� **Local Edition**") + """
+    """ + ("🌐 **Kaggle Edition** - Ücretsiz GPU ile ses restorasyonu!" if IN_KAGGLE else "💻 **Local Edition**") + """
     
     Ses dosyalarınızı AI ile restore edin!
     """)
@@ -442,19 +483,6 @@ with gr.Blocks(title="A2SB Audio Restoration - Kaggle", theme=gr.themes.Soft(), 
             audio_output = gr.Audio(label="Restore Edilmiş Ses", type="filepath")
             info_output = gr.Markdown("Ses dosyası yükleyin ve 'Restore Et' butonuna tıklayın.")
     
-    # Örnekler - Kaggle için devre dışı (JSON schema hatası nedeniyle)
-    # if IN_KAGGLE:
-    #     gr.Markdown("### 📚 Örnek Kullanım")
-    #     gr.Examples(
-    #         examples=[
-    #             ["bandwidth", 50, True, 2000, 0.3],
-    #             ["bandwidth", 75, False, 4000, 0.3],
-    #             ["inpainting", 50, True, 2000, 0.5],
-    #         ],
-    #         inputs=[mode, n_steps, cutoff_freq_auto, cutoff_freq_manual, inpaint_length],
-    #         label="Hızlı Ayarlar"
-    #     )
-    
     restore_btn.click(
         fn=restore_audio,
         inputs=[audio_input, mode, n_steps, cutoff_freq_auto, cutoff_freq_manual, inpaint_length],
@@ -470,7 +498,7 @@ with gr.Blocks(title="A2SB Audio Restoration - Kaggle", theme=gr.themes.Soft(), 
     """)
 
 if __name__ == "__main__":
-    # Komut satırı argümanlar��
+    # Komut satırı argümanları
     parser = argparse.ArgumentParser(description='A2SB Gradio App')
     parser.add_argument('--share', action='store_true', help='Create public URL')
     parser.add_argument('--port', type=int, default=7860, help='Port number')
@@ -494,7 +522,7 @@ if __name__ == "__main__":
             from pyngrok import ngrok as pyngrok_module
             
             print("🌐 Kaggle ortamı tespit edildi")
-            print("📁 Çıktılar: /kaggle/working/gradio_outputs/")
+            print("📁 Ç��ktılar: /kaggle/working/gradio_outputs/")
             
             # Ngrok token kontrolü
             ngrok_token = os.environ.get('NGROK_TOKEN', '')
@@ -534,17 +562,16 @@ if __name__ == "__main__":
     print("="*60 + "\n")
     
     try:
-        # Gradio API hatalarını önlemek için queue'yu devre dışı bırak
-        demo.queue = lambda *args, **kwargs: demo  # Queue'yu bypass et
-        
         demo.launch(
             share=True,
             server_port=args.port,
-            debug=False,  # Debug modunu kapat (API hatalarını gizler)
+            debug=False,
             show_error=True,
-            show_api=False,  # API dokümantasyonunu devre dışı bırak
+            show_api=False,
             server_name="0.0.0.0" if IN_KAGGLE else "127.0.0.1",
-            quiet=True  # Gereksiz logları gizle
+            quiet=False,
+            prevent_thread_lock=False,
+            inbrowser=False
         )
     except KeyboardInterrupt:
         print("\n\n🛑 Uygulama kapatılıyor...")
