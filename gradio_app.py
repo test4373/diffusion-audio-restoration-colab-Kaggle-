@@ -140,7 +140,7 @@ def get_fast_inference_settings():
     
     return settings
 
-def run_inference_fast(config_files, n_steps, output_path, use_compile=True, 
+def run_inference_fast(config_files, n_steps, output_path, batch_size=8, use_compile=True, 
                        precision='fp16', compile_mode='reduce-overhead'):
     """Run fast inference via CLI - using subprocess with optimizations"""
     try:
@@ -187,7 +187,7 @@ def run_inference_fast(config_files, n_steps, output_path, use_compile=True,
         except Exception:
             num_gpus = 0
 
-        predict_bs = 16  # Increased for fast inference
+        predict_bs = batch_size  # User configurable
 
         if num_gpus >= 2:
             try:
@@ -281,6 +281,7 @@ def run_inference_fast(config_files, n_steps, output_path, use_compile=True,
         print(f"✓ Compile mode: {compile_mode}")
         print(f"✓ Steps: {n_steps}")
         print(f"✓ Batch size: {predict_bs}")
+        print(f"✓ GPU Memory: {'~' + str(predict_bs * 2) + ' GB' if torch.cuda.is_available() else 'N/A'}")
         print(f"{'='*60}\n")
         
         import time
@@ -315,7 +316,7 @@ def run_inference_fast(config_files, n_steps, output_path, use_compile=True,
         print(f"❌ {error_msg}")
         return False, error_msg, 0
 
-def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manual, 
+def restore_audio(audio_file, mode, n_steps, batch_size, cutoff_freq_auto, cutoff_freq_manual, 
                   inpaint_length, use_fast_inference, precision, compile_mode,
                   progress=gr.Progress()):
     """Main audio restoration function with fast inference"""
@@ -346,6 +347,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
         # Fast inference settings
         if use_fast_inference:
             info_text += f"## 🚀 Fast Inference Settings\n\n"
+            info_text += f"- **Batch Size:** {batch_size}\n"
             info_text += f"- **Precision:** {precision}\n"
             info_text += f"- **Compile Mode:** {compile_mode}\n"
             info_text += f"- **torch.compile():** Enabled\n"
@@ -397,10 +399,11 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
         elif mode == "inpainting":
             progress(0.2, desc="🎨 Preparing audio inpainting...")
             
-            info_text += f"🎯 **Inpainting Length:** {inpaint_length}s\n"
-            info_text += f"⚙️ **Sampling Steps:** {n_steps}\n\n"
+            info_text += f"🎯 **Inpainting Fraction:** {inpaint_length} ({inpaint_length*100:.0f}% of audio)\n"
+            info_text += f"⚙️ **Sampling Steps:** {n_steps}\n"
+            info_text += f"📊 **Audio Sampling Rate:** {sr} Hz\n\n"
             
-            # Prepare config
+            # Prepare config - PURE INPAINTING MODE (no bandwidth extension)
             config_path = os.path.join(SCRIPT_DIR, 'configs', 'inference_files_inpainting.yaml')
             if not os.path.exists(config_path):
                 return None, f"❌ Config file not found: {config_path}"
@@ -413,11 +416,20 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
                 'output_subdir': '.'
             }]
             
-            config['data']['transforms_aug'][0]['init_args']['inpainting_mask_kwargs'] = {
-                'min_inpainting_frac': inpaint_length,
-                'max_inpainting_frac': inpaint_length,
-                'is_random': False
-            }
+            # PURE INPAINTING: Only use InpaintMask, completely disable bandwidth extension
+            config['data']['transforms_aug'] = [{
+                'class_path': 'corruption.corruptions.InpaintMask',
+                'init_args': {
+                    'min_inpainting_frac': inpaint_length,
+                    'max_inpainting_frac': inpaint_length,
+                    'is_random': False,
+                    'fill_noise_level': 0.1
+                }
+            }]
+            
+            # Memory optimization
+            if 'segment_length' in config['data']:
+                config['data']['segment_length'] = 65280
             
             temp_config = os.path.join(SCRIPT_DIR, 'configs', f'temp_gradio_{timestamp}.yaml')
             with open(temp_config, 'w') as f:
@@ -431,6 +443,7 @@ def restore_audio(audio_file, mode, n_steps, cutoff_freq_auto, cutoff_freq_manua
             [base_config, temp_config], 
             n_steps, 
             output_path,
+            batch_size=batch_size,
             use_compile=use_compile,
             precision=precision if use_fast_inference else 'fp32',
             compile_mode=compile_mode
@@ -527,23 +540,31 @@ with gr.Blocks(title="A2SB Fast Audio Restoration", theme=gr.themes.Soft()) as d
                 sources=["upload", "microphone"]
             )
             
+            # Mode is fixed to bandwidth only for now
             mode = gr.Radio(
-                choices=["bandwidth", "inpainting"],
+                choices=["bandwidth"],
                 value="bandwidth",
-                label="Restoration Mode"
+                label="Restoration Mode",
+                interactive=False
             )
             
-            with gr.Accordion("⚙️ Basic Settings", open=True):
+            with gr.Accordion("⚙️ Basic Settings", open=False):
                 n_steps = gr.Slider(20, 100, 30, step=5, 
                                    label="Sampling Steps (lower = faster)",
                                    info="Recommended: 20-30 for fast, 50+ for quality")
                 cutoff_freq_auto = gr.Checkbox(True, label="Auto Cutoff Frequency")
                 cutoff_freq_manual = gr.Slider(1000, 10000, 2000, step=100, 
                                               label="Manual Cutoff (Hz)", visible=False)
-                inpaint_length = gr.Slider(0.1, 1.0, 0.3, step=0.1, 
-                                          label="Inpainting Length (s)")
+                inpaint_length = gr.Slider(0.05, 0.5, 0.1, step=0.05, 
+                                          label="Inpainting Fraction (0.05 = 5% of audio)",
+                                          info="Fraction of audio to inpaint (0.1 = 10%)")
             
-            with gr.Accordion("🚀 Fast Inference Settings", open=True):
+            with gr.Accordion("🚀 Fast Inference Settings", open=False):
+                batch_size = gr.Slider(
+                    1, 32, 2, step=1,
+                    label="Batch Size",
+                    info="Lower=less memory, Higher=faster (2 recommended)"
+                )
                 use_fast_inference = gr.Checkbox(
                     True, 
                     label="Enable Fast Inference (3-4x speedup)",
@@ -588,7 +609,7 @@ with gr.Blocks(title="A2SB Fast Audio Restoration", theme=gr.themes.Soft()) as d
     
     restore_btn.click(
         fn=restore_audio,
-        inputs=[audio_input, mode, n_steps, cutoff_freq_auto, cutoff_freq_manual, 
+        inputs=[audio_input, mode, n_steps, batch_size, cutoff_freq_auto, cutoff_freq_manual, 
                 inpaint_length, use_fast_inference, precision, compile_mode],
         outputs=[audio_output, info_output]
     )

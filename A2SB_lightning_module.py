@@ -103,7 +103,7 @@ class TimePartitionedPretrainedSTFTBridgeModel(LightningModule):
     def ddpm_sample(self, x_1, t_steps=None, mask=None, mask_pred_x0=True,
                     win_length=256,
                     hop_length=256,
-                    batch_size=16
+                    batch_size=8
                     ):
         """
         win_length: temporal window length of input spectrogram
@@ -149,7 +149,7 @@ class TimePartitionedPretrainedSTFTBridgeModel(LightningModule):
     def fast_inpaint_ddpm_sample(self, x_1, t_steps=None, mask=None, mask_pred_x0=True,
                     win_length=256,
                     hop_length=256,
-                    batch_size=16):
+                    batch_size=8):
         """
         assumes any masked segment is shorter win_length and sufficiently suparated
         """

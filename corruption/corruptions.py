@@ -83,12 +83,13 @@ class ExtensionMask:
 
 
 class InpaintMask:
-    def __init__(self, min_inpainting_frac: float, max_inpainting_frac: float, is_random: bool):
+    def __init__(self, min_inpainting_frac: float, max_inpainting_frac: float, is_random: bool, fill_noise_level: float = 0.1):
         super().__init__()
         assert 0.0 <= min_inpainting_frac <= max_inpainting_frac <= 1.0
         self.min_inpainting_frac = min_inpainting_frac
         self.max_inpainting_frac = max_inpainting_frac
         self.is_random = is_random
+        self.fill_noise_level = fill_noise_level
 
     @staticmethod
     def get_inpainting_mask(spec: torch.Tensor, min_inpainting_frac, max_inpainting_frac, is_random):
@@ -113,8 +114,17 @@ class InpaintMask:
         inpaint_mask[:, :, inpainting_start:inpainting_end] = 1
         return inpaint_mask
 
-    def __call__(self, spec: torch.Tensor):
-        return self.get_inpainting_mask(spec, self.min_inpainting_frac, self.max_inpainting_frac, self.is_random)
+    def __call__(self, spec: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        input:
+            spec: spectrogram tensor of shape C x H x W
+        Returns:
+            masked_input: masked version of spec with noise-filled holes
+            mask: C x H x W binary mask used
+        """
+        mask = self.get_inpainting_mask(spec, self.min_inpainting_frac, self.max_inpainting_frac, self.is_random)
+        masked_and_noised_spec = mask_with_noise(spec, mask, self.fill_noise_level)
+        return masked_and_noised_spec, mask
 
 
 class MultinomialInpaintMaskTransform:

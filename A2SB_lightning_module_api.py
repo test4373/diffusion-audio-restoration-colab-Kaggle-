@@ -26,7 +26,7 @@ try:
     import ssr_eval
     SSR_EVAL_AVAILABLE = True
 except ImportError:
-    print("⚠️ ssr_eval modülü bulunamadı. Test metrikleri devre dışı.")
+    print("⚠️ ssr_eval module not found. Test metrics disabled.")
     SSR_EVAL_AVAILABLE = False
 
 from collections import defaultdict, OrderedDict

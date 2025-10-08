@@ -66,6 +66,10 @@ def apply_audio_transforms(audio: torch.Tensor, transforms: List[T]):
         # print("type of tx_fn", type(tx_fn), tx_fn)
         if type(tx_fn) in [jsonargparse._namespace.Namespace]:
             tx_fn = instantiate_from_ns(tx_fn)
+        elif isinstance(tx_fn, dict):
+            # Handle dict objects by converting to Namespace first
+            tx_fn = Namespace(**tx_fn)
+            tx_fn = instantiate_from_ns(tx_fn)
         
         output = tx_fn(audio)
         if type(output) is tuple:
