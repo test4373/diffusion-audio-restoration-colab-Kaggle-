@@ -24,7 +24,7 @@ Restore degraded audio to high-quality 44.1kHz music using NVIDIA's state-of-the
 
 ### Option 1: Google Colab (Recommended for Beginners)
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1m-G7gYXtumpqIVz2O6hCwLhLTWFMM6nw?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1ThenZDCRTJKV1I_ax17XGWmkB1qoKrFs?usp=sharing)
 
 
 1. Click the badge above
