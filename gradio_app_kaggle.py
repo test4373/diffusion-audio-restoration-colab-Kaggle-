@@ -657,7 +657,8 @@ if __name__ == "__main__":
             server_name="0.0.0.0" if IN_KAGGLE else "127.0.0.1",
             quiet=False,
             prevent_thread_lock=False,
-            inbrowser=False
+            inbrowser=False,
+            allowed_paths=[OUTPUT_DIR] if IN_KAGGLE else None
         )
     except KeyboardInterrupt:
         print("\n\n🛑 Uygulama kapatılıyor...")
