@@ -63,7 +63,7 @@ class FastTimePartitionedPretrainedSTFTBridgeModel(LightningModule):
                  predict_n_steps=50,
                  predict_hop_length=128,
                  predict_win_length=256,
-                 predict_batch_size=16,
+                 predict_batch_size=8,
                  output_audio_filename="recon.wav",
                  # Fast inference parametreleri
                  use_fast_inference=True,
@@ -165,7 +165,7 @@ class FastTimePartitionedPretrainedSTFTBridgeModel(LightningModule):
     def ddpm_sample_fast(self, x_1, t_steps=None, mask=None, mask_pred_x0=True,
                     win_length=256,
                     hop_length=256,
-                    batch_size=16
+                    batch_size=8
                     ):
         """
         Hızlandırılmış DDPM sampling
@@ -240,7 +240,7 @@ class FastTimePartitionedPretrainedSTFTBridgeModel(LightningModule):
     def fast_inpaint_ddpm_sample_fast(self, x_1, t_steps=None, mask=None, mask_pred_x0=True,
                     win_length=256,
                     hop_length=256,
-                    batch_size=16):
+                    batch_size=8):
         """
         Hızlandırılmış fast inpaint sampling
         """

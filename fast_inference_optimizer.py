@@ -220,7 +220,7 @@ class FastInferenceOptimizer:
             
         # Test batch size'ları
         batch_sizes = [1, 2, 4, 8, 16, 32, 64]
-        optimal_batch_size = 1
+        optimal_batch_size = 8
         
         for bs in batch_sizes:
             try:

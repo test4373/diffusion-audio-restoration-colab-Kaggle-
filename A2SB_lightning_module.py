@@ -42,7 +42,7 @@ class TimePartitionedPretrainedSTFTBridgeModel(LightningModule):
                  predict_n_steps=50,
                  predict_hop_length=128,
                  predict_win_length=256,
-                 predict_batch_size=16,
+                 predict_batch_size=8,
                  predict_output_dir="output"
                  ):
         super().__init__()

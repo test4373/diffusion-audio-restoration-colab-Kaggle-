@@ -24,7 +24,7 @@ from math import ceil
 from einops import rearrange
 
 
-def get_multidiffusion_vf(vf_model, x_t, t_emb, win_length=256, hop_length=128, batch_size=16):
+def get_multidiffusion_vf(vf_model, x_t, t_emb, win_length=256, hop_length=128, batch_size=8):
     """
     t_emb should be b x emb_dim but all embeddiengs should be for the same time step, as this code does not
     support heterogenous sampling schedulings
