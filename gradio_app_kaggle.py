@@ -181,7 +181,95 @@ def run_inference_direct(config_files, n_steps, output_path):
         # Kaggle için özel ayarlar
         if IN_KAGGLE:
             env['KAGGLE_KERNEL_RUN_TYPE'] = 'Interactive'
-        
+
+        # NCCL/IPC ayarları (Kaggle güvenliği için genelde gerekli)
+        env.setdefault('NCCL_P2P_DISABLE', '1')
+        env.setdefault('NCCL_SHM_DISABLE', '1')
+        env.setdefault('NCCL_IB_DISABLE', '1')
+
+        # Config'teki predict_filelist uzunluğunu oku (tek/multi dosya için davranışı belirle)
+        num_predict_items = 1
+        try:
+            with open(config_files[1], 'r') as f:
+                cfg_tmp = yaml.safe_load(f)
+            num_predict_items = len(cfg_tmp.get('data', {}).get('predict_filelist', [])) or 1
+        except Exception:
+            pass
+
+        # GPU sayısını tespit et ve uygun stratejiyi seç
+        try:
+            import torch
+            num_gpus = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        except Exception:
+            num_gpus = 0
+
+        predict_bs = 8  # Bellek için daha güvenli default
+
+        if num_gpus >= 2:
+            try:
+                import torch
+                free_per_gpu = []
+                for idx in range(num_gpus):
+                    try:
+                        with torch.cuda.device(idx):
+                            free, total = torch.cuda.mem_get_info()
+                        free_per_gpu.append((idx, free))
+                    except Exception:
+                        free_per_gpu.append((idx, 0))
+                # En çok boş belleğe sahip GPU'lar
+                free_per_gpu.sort(key=lambda x: x[1], reverse=True)
+
+                if num_predict_items >= 2:
+                    # Birden fazla dosya varsa çoklu GPU (DDP) kullan
+                    chosen = [str(free_per_gpu[i][0]) for i in range(min(2, len(free_per_gpu)))]
+                    env['CUDA_VISIBLE_DEVICES'] = ','.join(chosen)
+                    env.setdefault('MASTER_ADDR', '127.0.0.1')
+                    env.setdefault('MASTER_PORT', '12975')
+                    trainer_args = [
+                        '--trainer.strategy=ddp',
+                        f"--trainer.devices={len(chosen)}",
+                        '--trainer.accelerator=gpu',
+                        '--trainer.precision=16-mixed'
+                    ]
+                    print(f"🚀 Çoklu GPU DDP etkin: CUDA_VISIBLE_DEVICES={env['CUDA_VISIBLE_DEVICES']} | items={num_predict_items}")
+                else:
+                    # Tek dosyalı tahminde en boş GPU'yu seç ve tek GPU kullan
+                    best_gpu = str(free_per_gpu[0][0])
+                    env['CUDA_VISIBLE_DEVICES'] = best_gpu
+                    trainer_args = [
+                        '--trainer.strategy=auto',
+                        '--trainer.devices=1',
+                        '--trainer.accelerator=gpu',
+                        '--trainer.precision=16-mixed'
+                    ]
+                    print(f"🎯 Tek dosya: en boş GPU seçildi -> CUDA_VISIBLE_DEVICES={best_gpu}")
+            except Exception:
+                # Fallback: iki GPU da görünür, ancak tek GPU ile çalış
+                env['CUDA_VISIBLE_DEVICES'] = '0,1'
+                trainer_args = [
+                    '--trainer.strategy=auto',
+                    '--trainer.devices=1',
+                    '--trainer.accelerator=gpu',
+                    '--trainer.precision=16-mixed'
+                ]
+                print("⚠️ GPU seçimi sırasında hata: tek GPU fallback")
+        elif num_gpus == 1:
+            env['CUDA_VISIBLE_DEVICES'] = '0'
+            trainer_args = [
+                '--trainer.strategy=auto',
+                '--trainer.devices=1',
+                '--trainer.accelerator=gpu',
+                '--trainer.precision=16-mixed'
+            ]
+            print("🎯 Tek GPU tespit edildi: CUDA_VISIBLE_DEVICES=0")
+        else:
+            trainer_args = [
+                '--trainer.strategy=auto',
+                '--trainer.devices=1',
+                '--trainer.accelerator=cpu'
+            ]
+            print("🖥️ GPU tespit edilmedi: CPU modu")
+
         # Python'ı -u (unbuffered) flag'i ile çalıştır
         cmd = [
             sys.executable,
@@ -192,10 +280,8 @@ def run_inference_direct(config_files, n_steps, output_path):
             '-c', config_files[1],
             f'--model.predict_n_steps={n_steps}',
             f'--model.output_audio_filename={output_path}',
-            '--trainer.strategy=auto',
-            '--trainer.devices=1',
-            '--trainer.accelerator=auto',
-            '--trainer.precision=16-mixed',  # Mixed precision için bellek tasarrufu
+            f'--model.predict_batch_size={predict_bs}',
+        ] + trainer_args + [
             '--data.batch_size=1'  # Batch size'ı 1'e düşür
         ]
         
