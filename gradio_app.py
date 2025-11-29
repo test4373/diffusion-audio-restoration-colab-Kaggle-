@@ -101,11 +101,19 @@ def clear_gpu_memory():
         if torch.cuda.is_available():
             # Clear all GPUs
             for i in range(torch.cuda.device_count()):
-                with torch.cuda.device(i):
-                    torch.cuda.empty_cache()
-                    torch.cuda.ipc_collect()
+                try:
+                    with torch.cuda.device(i):
+                        torch.cuda.empty_cache()
+                        # torch.cuda.ipc_collect may not exist in some torch versions
+                        if hasattr(torch.cuda, "ipc_collect"):
+                            torch.cuda.ipc_collect()
+                except Exception:
+                    pass
             
-            torch.cuda.synchronize()
+            try:
+                torch.cuda.synchronize()
+            except Exception:
+                pass
             print("🧹 GPU memory cleared")
             return True
         return False
@@ -129,14 +137,20 @@ def get_fast_inference_settings():
         return settings
     
     # Check PyTorch version for compile support
-    torch_version = tuple(map(int, torch.__version__.split('.')[:2]))
-    if torch_version < (2, 0):
+    try:
+        torch_version = tuple(map(int, torch.__version__.split('.')[:2]))
+        if torch_version < (2, 0):
+            settings['use_compile'] = False
+            print("⚠️ torch.compile() requires PyTorch 2.0+, disabling")
+    except Exception:
         settings['use_compile'] = False
-        print("⚠️ torch.compile() requires PyTorch 2.0+, disabling")
     
     # Check GPU for BF16 support
-    if torch.cuda.is_bf16_supported():
-        print("✓ BF16 supported on this GPU")
+    try:
+        if torch.cuda.is_bf16_supported():
+            print("✓ BF16 supported on this GPU")
+    except Exception:
+        pass
     
     return settings
 
@@ -383,10 +397,22 @@ def restore_audio(audio_file, mode, n_steps, batch_size, cutoff_freq_auto, cutof
                 'output_subdir': '.'
             }]
             
-            config['data']['transforms_aug'][0]['init_args']['upsample_mask_kwargs'] = {
-                'min_cutoff_freq': cutoff_freq,
-                'max_cutoff_freq': cutoff_freq
-            }
+            # make sure transforms_aug exists and is list
+            if 'transforms_aug' not in config['data'] or not isinstance(config['data']['transforms_aug'], list):
+                config['data']['transforms_aug'] = []
+            if len(config['data']['transforms_aug']) == 0:
+                config['data']['transforms_aug'].append({
+                    'init_args': {}
+                })
+            # update upsample mask kwargs
+            try:
+                config['data']['transforms_aug'][0].setdefault('init_args', {})
+                config['data']['transforms_aug'][0]['init_args']['upsample_mask_kwargs'] = {
+                    'min_cutoff_freq': cutoff_freq,
+                    'max_cutoff_freq': cutoff_freq
+                }
+            except Exception:
+                pass
             
             # Memory optimization
             if 'segment_length' in config['data']:
@@ -434,6 +460,8 @@ def restore_audio(audio_file, mode, n_steps, batch_size, cutoff_freq_auto, cutof
             temp_config = os.path.join(SCRIPT_DIR, 'configs', f'temp_gradio_{timestamp}.yaml')
             with open(temp_config, 'w') as f:
                 yaml.dump(config, f)
+        else:
+            return None, f"❌ Unknown mode: {mode}"
         
         progress(0.3, desc="🔄 Running fast inference... (This may take a few minutes)")
         
@@ -450,8 +478,11 @@ def restore_audio(audio_file, mode, n_steps, batch_size, cutoff_freq_auto, cutof
         )
         
         # Delete temporary config
-        if os.path.exists(temp_config):
-            os.remove(temp_config)
+        try:
+            if os.path.exists(temp_config):
+                os.remove(temp_config)
+        except Exception:
+            pass
         
         if not success:
             return None, f"## ❌ Error\n\n```\n{error}\n```"
@@ -472,23 +503,34 @@ def restore_audio(audio_file, mode, n_steps, batch_size, cutoff_freq_auto, cutof
             info_text += f"- **Samples:** {len(y_out):,}\n\n"
             
             # Spectral features
-            cent_orig = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)[0])
-            cent_rest = np.mean(librosa.feature.spectral_centroid(y=y_out, sr=sr_out)[0])
-            rolloff_orig = np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr, roll_percent=0.99)[0])
-            rolloff_rest = np.mean(librosa.feature.spectral_rolloff(y=y_out, sr=sr_out, roll_percent=0.99)[0])
+            try:
+                cent_orig = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr)[0])
+                cent_rest = np.mean(librosa.feature.spectral_centroid(y=y_out, sr=sr_out)[0])
+                rolloff_orig = np.mean(librosa.feature.spectral_rolloff(y=y, sr=sr, roll_percent=0.99)[0])
+                rolloff_rest = np.mean(librosa.feature.spectral_rolloff(y=y_out, sr=sr_out, roll_percent=0.99)[0])
+            except Exception:
+                cent_orig = cent_rest = rolloff_orig = rolloff_rest = 0.0
             
             info_text += f"## 📈 Spectral Analysis\n\n"
             info_text += f"| Feature | Original | Restored | Change |\n"
             info_text += f"|---------|----------|----------|--------|\n"
-            info_text += f"| Spectral Centroid | {cent_orig:.0f} Hz | {cent_rest:.0f} Hz | {((cent_rest-cent_orig)/cent_orig*100):+.1f}% |\n"
-            info_text += f"| Spectral Rolloff | {rolloff_orig:.0f} Hz | {rolloff_rest:.0f} Hz | {((rolloff_rest-rolloff_orig)/rolloff_orig*100):+.1f}% |\n"
+            try:
+                change_cent = ((cent_rest-cent_orig)/cent_orig*100) if cent_orig != 0 else 0.0
+                change_roll = ((rolloff_rest-rolloff_orig)/rolloff_orig*100) if rolloff_orig != 0 else 0.0
+                info_text += f"| Spectral Centroid | {cent_orig:.0f} Hz | {cent_rest:.0f} Hz | {change_cent:+.1f}% |\n"
+                info_text += f"| Spectral Rolloff | {rolloff_orig:.0f} Hz | {rolloff_rest:.0f} Hz | {change_roll:+.1f}% |\n"
+            except Exception:
+                pass
             
             # Performance info
             if use_fast_inference:
-                info_text += f"\n## ⚡ Performance\n\n"
-                info_text += f"- **Fast Inference:** Enabled\n"
-                info_text += f"- **Processing Speed:** {duration/elapsed_time:.2f}x realtime\n"
-                info_text += f"- **Estimated Speedup:** 3-4x vs baseline\n"
+                try:
+                    info_text += f"\n## ⚡ Performance\n\n"
+                    info_text += f"- **Fast Inference:** Enabled\n"
+                    info_text += f"- **Processing Speed:** {duration/elapsed_time:.2f}x realtime\n"
+                    info_text += f"- **Estimated Speedup:** 3-4x vs baseline\n"
+                except Exception:
+                    pass
             
             progress(1.0, desc="✅ Complete!")
             return output_path, info_text
@@ -506,17 +548,21 @@ def restore_audio(audio_file, mode, n_steps, batch_size, cutoff_freq_auto, cutof
 
 # Get system info
 gpu_info = ""
-if torch.cuda.is_available():
-    gpu_name = torch.cuda.get_device_name(0)
-    gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-    gpu_info = f"🎮 GPU: {gpu_name} ({gpu_memory:.1f} GB)"
-else:
+try:
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        gpu_info = f"🎮 GPU: {gpu_name} ({gpu_memory:.1f} GB)"
+    else:
+        gpu_info = "🖥️ CPU Mode"
+except Exception:
     gpu_info = "🖥️ CPU Mode"
 
 pytorch_version = torch.__version__
 fast_inference_available = tuple(map(int, pytorch_version.split('.')[:2])) >= (2, 0)
 
-with gr.Blocks(title="A2SB Fast Audio Restoration", theme=gr.themes.Soft()) as demo:
+# NOTE: do NOT pass `theme=` to Blocks for compatibility with older gradio versions.
+with gr.Blocks() as demo:
     gr.Markdown(f"""
     # 🚀 A2SB: Fast Audio Restoration
     ### High-Quality Audio Restoration with PyTorch Optimizations - NVIDIA
@@ -583,6 +629,7 @@ with gr.Blocks(title="A2SB Fast Audio Restoration", theme=gr.themes.Soft()) as d
                     info="max-autotune=fastest (longer first run)"
                 )
             
+            # toggle manual cutoff visibility
             cutoff_freq_auto.change(
                 fn=lambda x: gr.update(visible=not x),
                 inputs=[cutoff_freq_auto],
@@ -621,12 +668,15 @@ if __name__ == "__main__":
     
     # System info
     print(f"\nPyTorch: {torch.__version__}")
-    if torch.cuda.is_available():
-        print(f"CUDA: {torch.version.cuda}")
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
-        print(f"Memory: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
-    else:
-        print("CPU Mode")
+    try:
+        if torch.cuda.is_available():
+            print(f"CUDA: {torch.version.cuda}")
+            print(f"GPU: {torch.cuda.get_device_name(0)}")
+            print(f"Memory: {torch.cuda.get_device_properties(0).total_memory / (1024**3):.1f} GB")
+        else:
+            print("CPU Mode")
+    except Exception:
+        print("System GPU/ CUDA query failed")
     
     # Check for Colab
     try:
@@ -646,4 +696,5 @@ if __name__ == "__main__":
     print("\n🚀 Launching Gradio...")
     print("="*60 + "\n")
     
+    # Launch: use share=IN_COLAB (keeps prior behavior)
     demo.launch(share=IN_COLAB, debug=True, show_error=True)
