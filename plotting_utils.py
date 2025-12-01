@@ -9,8 +9,16 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pylab as plt
 import numpy as np
-from moviepy.video.io.bindings import mplfig_to_npimage
 import librosa
+
+try:
+    from moviepy.video.io.bindings import mplfig_to_npimage
+except ImportError:
+    def mplfig_to_npimage(fig):
+        fig.canvas.draw()
+        buf = fig.canvas.buffer_rgba()
+        w, h = fig.canvas.get_width_height()
+        return np.frombuffer(buf, dtype=np.uint8).reshape(h, w, 4)[:, :, :3]
 
 
 def plot_spec_to_numpy(spectrogram, title='', sr=48000, hop_length=512, info=None, vmin=None, vmax=None, cmap='brg'):
