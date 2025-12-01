@@ -12,6 +12,8 @@ numpy>=1.24.0
 scipy>=1.10.0
 librosa>=0.10.0
 soundfile>=0.12.0
+moviepy>=1.0.3
+imageio-ffmpeg>=0.4.0
 
 # Deep Learning Utilities
 einops>=0.7.0
@@ -29,7 +31,7 @@ tqdm>=4.65.0
 
 # Optional but Recommended
 rotary-embedding-torch>=0.3.0
-ssr-eval>=0.1.0
+# ssr-eval>=0.0.1  # Disabled: Requires MySQL-python which fails on Windows
 
 # Development (Optional)
 matplotlib>=3.7.0
