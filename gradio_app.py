@@ -301,9 +301,11 @@ def run_inference_fast(config_files, n_steps, output_path, batch_size=8, use_com
         import time
         start_time = time.time()
         
+        print(f"📊 Running inference... (progress will be shown below)\n")
+        
         result = subprocess.run(
             cmd,
-            capture_output=True,
+            capture_output=False,
             text=True,
             cwd=SCRIPT_DIR,
             env=env
